@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Drawing;
-
-namespace AsfMojo.Media
+﻿namespace AsfMojo.Media
 {
     /// <summary>
     /// Fluent interface to create an image from an ASF stream
@@ -13,8 +7,6 @@ namespace AsfMojo.Media
     {
         string FileName { get; set; }
         double Offset { get; set; }
-
-        Bitmap AtOffset(double offset);
     }
 
     /// <summary>
@@ -24,11 +16,5 @@ namespace AsfMojo.Media
     {
         public string FileName { get; set; }
         public double Offset { get; set; }
-
-        public Bitmap AtOffset(double offset)
-        {
-            return AsfImage.FromFile(FileName, offset);
-        }
-
     }
 }

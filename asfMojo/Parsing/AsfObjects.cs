@@ -4,6 +4,10 @@ using System.Text;
 using System.IO;
 using System.Runtime.InteropServices;
 
+#if NET8_0_OR_GREATER
+using System.Diagnostics.CodeAnalysis;
+#endif
+
 using AsfMojo.Configuration;
 using AsfMojo.Media;
 using AsfMojo.Utils;
@@ -35,7 +39,7 @@ namespace AsfMojo.Parsing
             Guid  = someObject.object_id.ToGuid();
 
             //seek back to beginning of structure
-            _stream.Seek(_stream.Position - Marshal.SizeOf(typeof(AsfMojoObject)), SeekOrigin.Begin);
+            _stream.Seek(_stream.Position - Marshal.SizeOf<AsfMojoObject>(), SeekOrigin.Begin);
             Position = _stream.Position;
 
             //copy raw data
@@ -100,33 +104,27 @@ namespace AsfMojo.Parsing
             return new AsfUnknownObject(stream);
         }
 
-        protected static T ReadStruct<T>(Stream stream)
+        protected static T ReadStruct<
+#if NET8_0_OR_GREATER
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors)]
+#endif
+            T>(Stream stream)
         {
-            byte[] buffer = new byte[Marshal.SizeOf(typeof(T))];
-            stream.Read(buffer, 0, Marshal.SizeOf(typeof(T)));
+            byte[] buffer = new byte[Marshal.SizeOf<T>()];
+            stream.Read(buffer, 0, Marshal.SizeOf<T>());
             GCHandle handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
-            T typedStruct = (T)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(T));
+            T typedStruct = Marshal.PtrToStructure<T>(handle.AddrOfPinnedObject());
             handle.Free();
             return typedStruct;
         }
 
         protected static void WriteStruct<T>(T inputStruct, Stream stream) where T: struct
         {
-            byte[] buffer = new byte[Marshal.SizeOf(typeof(T))];
+            byte[] buffer = new byte[Marshal.SizeOf<T>()];
             GCHandle handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);//Allocate the buffer to memory and pin it so that GC cannot use the space (Disable GC) 
             Marshal.StructureToPtr(inputStruct, handle.AddrOfPinnedObject(), false);// copy the struct into int byte[] mem alloc 
             handle.Free(); //Allow GC to do its job 
             stream.Write(buffer, 0, buffer.Length);
-        }
-
-        protected static void GetStructProperties<T>(T myStruct, ref Dictionary<string, object> props) where T : struct
-        {
-            Type t = myStruct.GetType();
-            System.Reflection.FieldInfo[] fields = t.GetFields();
-            foreach (System.Reflection.FieldInfo field in fields)
-            {
-                props.Add(field.Name, field.GetValue(myStruct));
-            }
         }
     }
 
@@ -138,7 +136,7 @@ namespace AsfMojo.Parsing
         public uint HeaderSize { get; set; }
         private AsfMojoFileHeader _asfFileHeader;
 
-        public AsfFileHeader(Stream stream, AsfFileConfiguration config = null)
+        public AsfFileHeader(Stream stream, AsfFileConfiguration? config = null)
             : base(stream, "Header Object")
         {
             long streamPosition = stream.Position;
@@ -159,7 +157,7 @@ namespace AsfMojo.Parsing
 
         public override int GetLength()
         {
-            return Marshal.SizeOf(typeof(AsfMojoFileHeader));
+            return Marshal.SizeOf<AsfMojoFileHeader>();
         }
 
     }
@@ -300,7 +298,7 @@ namespace AsfMojo.Parsing
 
         public override int GetLength()
         {
-            return Marshal.SizeOf(typeof(AsfMojoHeaderExtension));
+            return Marshal.SizeOf<AsfMojoHeaderExtension>();
         }
     }
 
@@ -493,7 +491,7 @@ namespace AsfMojo.Parsing
                     config.ImageHeight = (int)asfVideoStreamFormatData.image_height;
                 }
 
-                byte[] codec_specific_data = new byte[asfVideoStreamFormatData.format_data_size - (long)Marshal.SizeOf(typeof(AsfMojoVideoStreamFormatData))];
+                byte[] codec_specific_data = new byte[asfVideoStreamFormatData.format_data_size - (long)Marshal.SizeOf<AsfMojoVideoStreamFormatData>()];
                 _stream.Read(codec_specific_data, 0, codec_specific_data.Length);
 
                 //skip error correction data
@@ -565,7 +563,7 @@ namespace AsfMojo.Parsing
             AsfMojoIndexParametersPlaceholder asfIndexParametersPlaceholder = ReadStruct<AsfMojoIndexParametersPlaceholder>(_stream);
 
             //just skip over 
-            long seekPos = _stream.Position - Marshal.SizeOf(typeof(AsfMojoIndexParametersPlaceholder)) + (long)asfIndexParametersPlaceholder.object_size;
+            long seekPos = _stream.Position - Marshal.SizeOf<AsfMojoIndexParametersPlaceholder>() + (long)asfIndexParametersPlaceholder.object_size;
             _stream.Seek(seekPos, SeekOrigin.Begin);
         }
     }
@@ -580,7 +578,7 @@ namespace AsfMojo.Parsing
         {
             //just skip over 
             AsfMojoPaddingObject asfPaddingObject = ReadStruct<AsfMojoPaddingObject>(_stream);
-            long seekPos = _stream.Position - Marshal.SizeOf(typeof(AsfMojoPaddingObject)) + (long)asfPaddingObject.object_size;
+            long seekPos = _stream.Position - Marshal.SizeOf<AsfMojoPaddingObject>() + (long)asfPaddingObject.object_size;
             _stream.Seek(seekPos, SeekOrigin.Begin);
         }
     }
@@ -722,7 +720,7 @@ namespace AsfMojo.Parsing
         {
             //just skip over 
             AsfMojoObject someObject = ReadStruct<AsfMojoObject>(stream);
-            long seekPos = _stream.Position - Marshal.SizeOf(typeof(AsfMojoObject)) + (long)someObject.object_size;
+            long seekPos = _stream.Position - Marshal.SizeOf<AsfMojoObject>() + (long)someObject.object_size;
             _stream.Seek(seekPos, SeekOrigin.Begin);
         }
     }
@@ -777,7 +775,7 @@ namespace AsfMojo.Parsing
 
         public override int GetLength()
         {
-            return Marshal.SizeOf(typeof(AsfMojoDataObject));
+            return Marshal.SizeOf<AsfMojoDataObject>();
         }
     }
 
@@ -1108,7 +1106,7 @@ namespace AsfMojo.Parsing
 
         public override int GetLength()
         {
-            int length = Marshal.SizeOf(typeof(AsfMojoContentDescriptionObject));
+            int length = Marshal.SizeOf<AsfMojoContentDescriptionObject>();
 
             foreach (string item in ContentProperties.Values)
                 length += 2*item.Length + 2;

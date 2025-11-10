@@ -25,13 +25,6 @@ namespace AsfMojo.Media
             return new WaveMemoryStreamProperties() { FileName = fileName };
         }
 
-        public static WaveMemoryStream FromFile(string fileName, double startOffset, double endOffset)
-        {
-            using (AsfStream asfStream = new AsfStream(AsfStreamType.asfAudio, fileName, startOffset, endOffset))
-            using (AsfAudio asfAudio = new AsfAudio(asfStream))
-                return asfAudio.GetWaveStream();
-        }
-
         public WaveMemoryStream(Stream stream, int audioSampleRate, ushort audioBitsPerSample, ushort audioChannels)
         {
             byte[] sampleData = new byte[stream.Length];

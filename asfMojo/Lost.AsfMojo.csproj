@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+
+    <IsTrimmable Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">true</IsTrimmable>
+    <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
+
+    <!-- Package stuff -->
+    <Version>2.0.0</Version>
+    <PackageLicenseExpression>MS-PL</PackageLicenseExpression>
+    <PackageLicenseFile Condition="$(PackageLicenseExpression) == ''">LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>AsfMojo .NET ASF Parsing Library</Description>
+    <Company>LOST</Company>
+    <Product>AsfMojo</Product>
+    <Copyright>Copyright © 2010 Michael Knapp</Copyright>
+    <!--<PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>-->
+
+    <!-- The following is recommended for public projects -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="..\README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The following is recommended for public projects -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>

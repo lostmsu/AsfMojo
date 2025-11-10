@@ -36,8 +36,8 @@ namespace AsfMojo.File
 
         protected FileStream _fileStream;
         protected string _fileName;
-        protected byte[] _streamingHeader = null;
-        protected List<AsfObject> _headerObjects = null;
+        protected byte[]? _streamingHeader = null;
+        protected List<AsfObject>? _headerObjects = null;
         protected AsfFileConfiguration _asfConfig;
 
         public AsfFileConfiguration PacketConfiguration
@@ -76,7 +76,7 @@ namespace AsfMojo.File
         }
 
 
-        public void Update(string targetFileName = null)
+        public void Update(string? targetFileName = null)
         {
             int headerLength = 0;
             bool doOverwrite = string.IsNullOrEmpty(targetFileName) || targetFileName == FileName;
@@ -182,7 +182,7 @@ namespace AsfMojo.File
             return _headerObjects.OfType<T>().ToList();
         }
 
-        public T GetAsfObject<T>() where T: AsfObject
+        public T? GetAsfObject<T>() where T: AsfObject
         {
             return _headerObjects.OfType<T>().FirstOrDefault();
         }

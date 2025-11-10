@@ -18,11 +18,6 @@ namespace AsfMojo.Media
         /// Sets the start offset of the wave stream
         /// </summary>
         IWaveMemoryStreamProperties From(double offset);
-
-        /// <summary>
-        /// Sets the end offset of the wave stream and returns the stream
-        /// </summary>
-        WaveMemoryStream To(double offset);
     }
 
 
@@ -40,18 +35,6 @@ namespace AsfMojo.Media
         {
             StartOffset = offset;
             return this;
-        }
-
-        /// <summary>
-        /// Sets the end offset of the wave stream and returns the stream
-        /// </summary>
-        public WaveMemoryStream To(double offset)
-        {
-            if (StartOffset == null)
-                throw new ArgumentException("Must have a valid start offset");
-
-            EndOffset = offset;
-            return WaveMemoryStream.FromFile(FileName, StartOffset.Value, EndOffset.Value);
         }
     }
 }

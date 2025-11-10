@@ -1,17 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+
 using AsfMojo.File;
-using AsfMojo.Configuration;
 using AsfMojo.Parsing;
-using AsfMojo.Media;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.IO;
-using System.Drawing.Drawing2D;
-using System.Media;
-using System.Threading;
 
 namespace AsfMojoCmd
 {
@@ -31,14 +22,11 @@ namespace AsfMojoCmd
                 if(args[i] == "-l")
                     switches.Add("PrintDuration", "");
 
-                if (args[i] == "-t")
-                    switches.Add("ExtractImage", "");
-
-                if (args[i] == "-a")
-                    switches.Add("ExtractAudio", "");
-
                 if (args[i] == "-u")
                     switches.Add("UpdateProperties", "");
+
+                if (args[i] == "-tracks")
+                    switches.Add("PrintTracks", "");
 
                 if (args[i] == "-author")
                     switches.Add("Author", args[++i].Trim('\"'));
@@ -90,46 +78,79 @@ namespace AsfMojoCmd
                     AsfFileProperties fileProperties = asfFile.GetAsfObject<AsfFileProperties>();
                     Console.WriteLine(string.Format("File {0} has a duration of {1}", fileName, fileProperties.Duration.ToString("mm':'ss\\.fff")));
                 }
-                else if (switches.ContainsKey("ExtractImage")) //extract an image thumb from a time offset
+                else if (switches.ContainsKey("PrintTracks")) // print tracks and their codecs
                 {
-                    //create thumb
-                    double startOffset = (double)switches["StartOffset"];
-                    string outputFile = (string)switches["OutputFile"];
+                    AsfFile asfFile = new AsfFile(fileName);
 
-                    Bitmap bitmap = AsfImage.FromFile(fileName, startOffset);
+                    var streamObjects = asfFile.GetAsfObjects<AsfStreamPropertiesObject>();
+                    var codecList = asfFile.GetAsfObject<AsfCodecListObject>();
 
-                    if (switches.ContainsKey("Width"))
+                    // Separate codec entries by type for simple sequential mapping
+                    List<Dictionary<string, object>> audioCodecEntries = new List<Dictionary<string, object>>();
+                    List<Dictionary<string, object>> videoCodecEntries = new List<Dictionary<string, object>>();
+                    if (codecList != null)
                     {
-                        int width = (int)switches["Width"];
-                        int height = (int)(bitmap.Height * ((double)width / bitmap.Width));
-
-                        Bitmap thumbBitmap = new Bitmap(width, height);
-                        using (Graphics g = Graphics.FromImage(thumbBitmap))
+                        foreach (var cp in codecList.CodecProperties)
                         {
-                            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                            g.DrawImage(bitmap, 0, 0, width, height);
+                            string type = cp.ContainsKey("Type") ? cp["Type"].ToString() : string.Empty;
+                            if (type == "Audio Codec") audioCodecEntries.Add(cp);
+                            else if (type == "Video Codec") videoCodecEntries.Add(cp);
                         }
-                        bitmap = thumbBitmap;
                     }
 
-                    ImageFormat outputFormat = ImageFormat.Bmp;
-                    if (outputFile.ToLower().Contains(".jpg"))
-                        outputFormat = ImageFormat.Jpeg;
-                    else if (outputFile.ToLower().Contains(".png"))
-                        outputFormat = ImageFormat.Png;
+                    int audioCodecIndex = 0;
+                    int videoCodecIndex = 0;
 
-                    bitmap.Save(outputFile, outputFormat);
-                }
-                else if (switches.ContainsKey("ExtractAudio")) //extract audio data from a time range
-                {
-                    double startOffset = (double)switches["StartOffset"];
-                    double endOffset = (double)switches["EndOffset"];
-                    string outputFile = (string)switches["OutputFile"];
+                    Console.WriteLine("Tracks:");
+                    foreach (var so in streamObjects)
+                    {
+                        bool isAudio = so.StreamType == AsfGuid.ASF_Audio_Media;
+                        bool isVideo = so.StreamType == AsfGuid.ASF_Video_Media;
+                        if (!isAudio && !isVideo)
+                            continue; // skip unsupported types
 
-                    WaveMemoryStream waveStream = WaveMemoryStream.FromFile(fileName, startOffset, endOffset);
+                        if (isAudio)
+                        {
+                            var audioProps = (AsfMojoAudioStreamProperties)so.StreamProperties["AudioStreamProperties"];
+                            Dictionary<string, object> mappedCodec = audioCodecIndex < audioCodecEntries.Count ? audioCodecEntries[audioCodecIndex++] : null;
+                            string codecName = mappedCodec != null && mappedCodec.ContainsKey("Name") ? mappedCodec["Name"].ToString() : "Unknown";
+                            string codecDesc = mappedCodec != null && mappedCodec.ContainsKey("Description") ? mappedCodec["Description"].ToString() : "";
 
-                    using (FileStream fs = new FileStream(outputFile, FileMode.Create))
-                    waveStream.WriteTo(fs);
+                            Console.WriteLine(string.Format("  Stream {0} (Audio): Codec={1} {2} FormatTag={3} Channels={4} SampleRate={5} BitsPerSample={6} AvgBitrate={7}bps", 
+                                so.StreamNumber,
+                                codecName,
+                                string.IsNullOrEmpty(codecDesc) ? "" : "- " + codecDesc,
+                                audioProps.format_tag,
+                                audioProps.number_channels,
+                                audioProps.samples_per_second,
+                                audioProps.bits_per_sample,
+                                8 * audioProps.average_bytes_per_second));
+                        }
+                        else if (isVideo)
+                        {
+                            var videoProps = (AsfMojoVideoStreamProperties)so.StreamProperties["VideoStreamProperties"];
+                            var formatData = (AsfMojoVideoStreamFormatData)so.StreamProperties["VideoStreamFormatData"];
+                            Dictionary<string, object> mappedCodec = videoCodecIndex < videoCodecEntries.Count ? videoCodecEntries[videoCodecIndex++] : null;
+                            string codecName = mappedCodec != null && mappedCodec.ContainsKey("Name") ? mappedCodec["Name"].ToString() : "Unknown";
+                            string codecDesc = mappedCodec != null && mappedCodec.ContainsKey("Description") ? mappedCodec["Description"].ToString() : "";
+                            string fourCC = System.Text.ASCIIEncoding.ASCII.GetString(formatData.compression_id).Trim('\0');
+
+                            // Frame rate if available (AvgTimePerFrame from extended stream props object) not directly here; skip unless we add lookup.
+                            Console.WriteLine(string.Format("  Stream {0} (Video): Codec={1} {2} FourCC={3} Width={4} Height={5} BitsPerPixel={6}",
+                                so.StreamNumber,
+                                codecName,
+                                string.IsNullOrEmpty(codecDesc) ? "" : "- " + codecDesc,
+                                fourCC,
+                                formatData.image_width,
+                                formatData.image_height,
+                                formatData.bits_per_pixel_count));
+                        }
+                    }
+
+                    if (codecList == null)
+                    {
+                        Console.WriteLine("No codec list object found; codec names may be unavailable.");
+                    }
                 }
                 else if (switches.ContainsKey("UpdateProperties")) //update content description properties
                 {
@@ -172,6 +193,12 @@ namespace AsfMojoCmd
             Console.WriteLine("  AsfMojoCmd -i <filename> -l");
             Console.WriteLine("Example:");
             Console.WriteLine("  AsfMojoCmd -i test.wmv -l");
+
+            Console.WriteLine("---------------------------");
+            Console.WriteLine("Listing tracks and codecs:");
+            Console.WriteLine("  AsfMojoCmd -i <filename> -tracks");
+            Console.WriteLine("Example:");
+            Console.WriteLine("  AsfMojoCmd -i test.wmv -tracks");
 
             Console.WriteLine("---------------------------");
             Console.WriteLine("Extracting a still frame from an offset:");
